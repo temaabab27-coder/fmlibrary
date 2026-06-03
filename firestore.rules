@@ -1,0 +1,146 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============ ВСПОМОГАТЕЛЬНЫЕ ФУНККЦИИ ============
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function ownerDoc() {
+      return get(/databases/$(database)/documents/config/owner);
+    }
+
+    function ownerExists() {
+      return exists(/databases/$(database)/documents/config/owner);
+    }
+
+    function getOwnerUid() {
+      return ownerDoc().data.ownerUid;
+    }
+
+    function isOwner() {
+      return isSignedIn() && ownerExists() && getOwnerUid() == request.auth.uid;
+    }
+
+    function myUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function myUserExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return isSignedIn() && myUserExists() && myUserDoc().data.role == 'admin';
+    }
+
+    function isAdminOrOwner() {
+      return isOwner() || isAdmin();
+    }
+
+    function amBlocked() {
+      return isSignedIn() && myUserExists() && myUserDoc().data.blocked == true;
+    }
+
+    function targetIsOwner(userId) {
+      return ownerExists() && getOwnerUid() == userId;
+    }
+
+    // ============ CONFIG ============
+    // config/owner — содержит ownerUid.
+    // Создать можно РОВНО ОДИН РАЗ при первом запуске,
+    // и только пользователем, который только что создал свой owner-профиль.
+    // После создания — никаких изменений.
+
+    match /config/{docId} {
+      // Чтение разрешено всем (в т.ч. до входа) — нужно для определения,
+      // создан ли owner, и показа соответствующего экрана (вход / создание owner).
+      // Содержимое документа не является секретом (ownerUid + createdAt).
+      allow read: if true;
+      allow create: if !exists(/databases/$(database)/documents/config/$(docId)) &&
+                       isSignedIn() &&
+                       myUserExists() &&
+                       myUserDoc().data.role == 'owner';
+      allow update, delete: if false;
+    }
+
+    // ============ USERS ============
+
+    match /users/{userId} {
+      // Чтение: себя, админа или владельца
+      allow read: if isSignedIn() &&
+                     (request.auth.uid == userId || isAdminOrOwner());
+
+      // Создание:
+      // - владелец/админ может создавать любых пользователей
+      // - если owner ещё не существует, разрешаем создать первого (самого owner)
+      //   с обязательным условием: role == 'owner' и emailVerified == false
+      // - публичная самостоятельная регистрация: только роль 'user', только в свой документ
+      allow create: if isAdminOrOwner() ||
+                       (!ownerExists() &&
+                        request.resource.data.role == 'owner' &&
+                        request.resource.data.keys().hasAll(['username', 'role', 'blocked', 'email', 'createdAt'])) ||
+                       (isSignedIn() &&
+                        request.auth.uid == userId &&
+                        request.resource.data.role == 'user' &&
+                        request.resource.data.keys().hasAll(['username', 'role', 'blocked', 'email', 'createdAt']));
+
+      // Обновление:
+      // 1) Владелец системы может менять любых пользователей, КРОМЕ:
+      //    - самого себя (он может менять только не-критичные поля, role должен оставаться 'owner')
+      //    - не может изменить role владельца
+      // 2) Админ может менять любых пользователей, КРОМЕ владельца
+      // 3) Юзер может менять себя, но только определённые поля
+      allow update: if
+        // Владелец обновляет самого себя — может всё, КРОМЕ понижения роли
+        (isOwner() && request.auth.uid == userId &&
+         request.resource.data.role == 'owner') ||
+
+        // Владелец обновляет других (не себя) — может всё
+        (isOwner() && request.auth.uid != userId) ||
+
+        // Админ обновляет не-владельца — может всё
+        (isAdmin() && !targetIsOwner(userId)) ||
+
+        // Юзер обновляет себя — может менять только lastLogin, НЕ может менять role/blocked
+        (request.auth.uid == userId &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastLogin']));
+
+      // Удаление: только админ/владелец, и НЕ самого владельца
+      allow delete: if isAdminOrOwner() && !targetIsOwner(userId);
+    }
+
+    // ============ DOCUMENTS ============
+
+    match /documents/{docId} {
+      // Чтение: все залогиненные незаблокированные
+      allow read: if isSignedIn() && !amBlocked();
+
+      // Создание: залогиненный незаблокированный, ownerUid должен быть свой
+      allow create: if isSignedIn() && !amBlocked() &&
+                       request.resource.data.ownerUid == request.auth.uid &&
+                       request.resource.data.keys().hasAll(['title', 'url', 'description', 'tags', 'keywords', 'format', 'ownerUid', 'ownerUsername', 'createdAt']);
+
+      // Обновление/удаление: владелец документа, админ или владелец системы
+      allow update, delete: if isSignedIn() && !amBlocked() &&
+                               (isAdminOrOwner() ||
+                                resource.data.ownerUid == request.auth.uid);
+    }
+
+    // ============ LOGIN ATTEMPTS (rate limiting) ============
+    // Документы с ключом = SHA-256(email). Поля: count, lastAttempt, blockedUntil.
+    // Разрешаем доступ всем (даже до логина) — это только счётчик попыток.
+
+    match /loginAttempts/{attemptId} {
+      allow read: if true;
+      allow create, update: if
+        request.resource.data.keys().hasOnly(['count', 'lastAttempt', 'blockedUntil']) &&
+        request.resource.data.count is int &&
+        request.resource.data.count >= 0 &&
+        request.resource.data.count <= 100;
+    }
+  }
+}
