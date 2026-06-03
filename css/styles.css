@@ -66,6 +66,7 @@ body.dark .format-btn { background: #334155; color: #cbd5e1; }
 body.dark .format-btn.active { background: #2c3e66; color: white; }
 body.dark code { background: #0f172a; color: #fbbf24; }
 body.dark .password-strength { color: #cbd5e1; }
+body.dark .brand-label { color: #ffffff; }
 
 /* === Деловая тема === */
 body.business .card,
@@ -348,6 +349,20 @@ body.dark .format-badge { background: #334155; color: #cbd5e1; }
   flex-wrap: wrap;
   margin-bottom: 16px;
   gap: 12px;
+}
+
+.top-bar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brand-label {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #2c3e66;
+  line-height: 1;
 }
 
 .top-bar h1 {

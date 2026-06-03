@@ -259,6 +259,19 @@
             flex-wrap: wrap;
             margin-bottom: 16px;
         }
+        .top-bar-left {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .brand-label {
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            color: #2c3e66;
+            line-height: 1;
+        }
+        body.dark .brand-label { color: #ffffff; }
         .login-overlay {
             position: fixed;
             top: 0;
@@ -539,7 +552,7 @@
             
             let profileHtml = `<div class="card"><h3>👤 Мой профиль</h3><p><strong>Логин:</strong> ${currentUser.username}</p><p><strong>Роль:</strong> ${currentUser.role === 'admin' ? 'Администратор' : 'Пользователь'}</p><p><strong>Права:</strong> ${currentUser.role === 'admin' ? 'Вы можете удалять любые файлы' : 'Вы можете удалять только свои файлы'}</p><button id="logoutBtn" class="warning">🚪 Выйти из системы</button></div>`;
 
-            let fullHtml = `<div class="top-bar"><h1>📘 База знаний <span style="font-size:0.7rem;">⚡ с умным поиском</span></h1></div>${tabsHtml}<div id="tabHome" class="tab-pane ${activeTab === 'home' ? 'active-pane' : ''}">${searchHtml}</div><div id="tabAdd" class="tab-pane ${activeTab === 'add' ? 'active-pane' : ''}">${addHtml}</div>${isAdmin ? `<div id="tabUsers" class="tab-pane ${activeTab === 'users' ? 'active-pane' : ''}">${usersHtml}</div>` : ""}<div id="tabProfile" class="tab-pane ${activeTab === 'profile' ? 'active-pane' : ''}">${profileHtml}</div>`;
+            let fullHtml = `<div class="top-bar"><div class="top-bar-left"><div class="brand-label">FMlogistic</div><h1>📘 База знаний <span style="font-size:0.7rem;">⚡ с умным поиском</span></h1></div></div>${tabsHtml}<div id="tabHome" class="tab-pane ${activeTab === 'home' ? 'active-pane' : ''}">${searchHtml}</div><div id="tabAdd" class="tab-pane ${activeTab === 'add' ? 'active-pane' : ''}">${addHtml}</div>${isAdmin ? `<div id="tabUsers" class="tab-pane ${activeTab === 'users' ? 'active-pane' : ''}">${usersHtml}</div>` : ""}<div id="tabProfile" class="tab-pane ${activeTab === 'profile' ? 'active-pane' : ''}">${profileHtml}</div>`;
             container.innerHTML = fullHtml;
 
             document.querySelectorAll(".tab-btn").forEach(btn => {

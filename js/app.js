@@ -115,7 +115,10 @@
 
     container.innerHTML = `
       <div class="top-bar">
-        <h1>📘 База знаний <span class="subtitle">⚡ с умным поиском</span></h1>
+        <div class="top-bar-left">
+          <div class="brand-label">FMlogistic</div>
+          <h1>📘 База знаний <span class="subtitle">⚡ с умным поиском</span></h1>
+        </div>
         <div class="user-badge">
           👤 <strong>${App.escapeHtml(profile.username)}</strong>
           <span class="role-badge role-${profile.role}">${App._roleLabel(profile.role)}</span>
